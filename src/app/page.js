@@ -1,66 +1,138 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import Head from 'next/head';
+import { elements } from '@/data/elements';
+import PeriodicTable from '@/components/PeriodicTable';
+import ReferenceTableModal from '@/components/ReferenceTableModal';
 
 export default function Home() {
+  const [userAnswers, setUserAnswers] = useState({});
+  const [validationStatuses, setValidationStatuses] = useState({});
+  const [showAtomicNumber, setShowAtomicNumber] = useState(true);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [correctCount, setCorrectCount] = useState(0);
+
+  // Calculate score whenever validation statuses change
+  useEffect(() => {
+    let count = 0;
+    Object.values(validationStatuses).forEach(status => {
+      if (status === 'correct') count++;
+    });
+    setCorrectCount(count);
+
+    if (count === elements.length) {
+      setIsSuccess(true);
+    }
+  }, [validationStatuses]);
+
+  const handleCellChange = (atomicNumber, value) => {
+    // Only allow max 3 chars
+    if (value.length > 3) return;
+
+    // Normalize string (Capitalize first letter, lowercase rest)
+    const normalized = value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+
+    setUserAnswers(prev => ({
+      ...prev,
+      [atomicNumber]: normalized
+    }));
+
+    const el = elements.find(e => e.atomicNumber === atomicNumber);
+
+    // Immediately mark as correct if the answer matches exactly
+    if (normalized === el.symbol) {
+      setValidationStatuses(prev => ({
+        ...prev,
+        [atomicNumber]: 'correct'
+      }));
+    } else if (validationStatuses[atomicNumber] === 'error') {
+      // Clear error status if user types again and it was previously error
+      setValidationStatuses(prev => ({
+        ...prev,
+        [atomicNumber]: 'default'
+      }));
+    }
+  };
+
+  const handleCellBlur = (atomicNumber, value) => {
+    if (!value) return; // Do not shake if they just leave it empty
+
+    const el = elements.find(e => e.atomicNumber === atomicNumber);
+    if (value !== el.symbol) {
+      // Tandai error agar kotak shake + merah
+      setValidationStatuses(prev => ({
+        ...prev,
+        [atomicNumber]: 'error'
+      }));
+      // Hapus jawaban salah agar user langsung bisa isi ulang
+      setUserAnswers(prev => ({
+        ...prev,
+        [atomicNumber]: ''
+      }));
+    }
+  };
+
+  const handleReset = () => {
+    setUserAnswers({});
+    setValidationStatuses({});
+    setIsSuccess(false);
+    setCorrectCount(0);
+  };
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <>
+      <Head>
+        <title>Hafal Periodik</title>
+        <meta name="description" content="Latihan menghafal tabel periodik unsur" />
+      </Head>
+
+      <main>
+        <header className="app-header">
+          <div className="header-title">IPUNG HAFAL PERIODIK UNTUK SKRIPSI</div>
+
+          <div className="controls-bar">
+            <div className="score-display">
+              Benar: {correctCount} / 118
+            </div>
+
+            <label className="toggle-wrapper">
+              <div
+                className={`toggle-switch ${showAtomicNumber ? 'active' : ''}`}
+                onClick={() => setShowAtomicNumber(!showAtomicNumber)}
+              />
+              Nomor Atom
+            </label>
+
+            <button className="btn btn-secondary" onClick={handleReset} suppressHydrationWarning={true}>
+              Reset
+            </button>
+
+            <ReferenceTableModal />
+          </div>
+        </header>
+
+        <PeriodicTable
+          elements={elements}
+          userAnswers={userAnswers}
+          validationStatuses={validationStatuses}
+          onCellChange={handleCellChange}
+          onCellValidate={handleCellBlur}
+          showAtomicNumber={showAtomicNumber}
         />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.js file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className={`success-overlay ${isSuccess ? 'visible' : ''}`}>
+          <div className="glass-panel success-card">
+            <div className="success-title">Selamat! 🎉</div>
+            <div className="success-text">
+              Anda berhasil menghafal seluruh 118 unsur tabel periodik.
+            </div>
+            <button className="btn btn-primary" onClick={handleReset} suppressHydrationWarning={true}>
+              Main Lagi
+            </button>
+          </div>
         </div>
       </main>
-    </div>
+    </>
   );
 }
